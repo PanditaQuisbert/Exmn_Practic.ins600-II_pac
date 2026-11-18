@@ -55,6 +55,8 @@ SistemaNotasColegio_Examen_Practc_PAC/
 │   ├── package.json
 │   ├── vite.config.js
 │   └── README.md
+├── database/
+│   └── SistemaNotasColegioDB.sql            # Script SQL completo e idempotente para entregar
 ├── SistemaNotasColegio_Examen_Practc_PAC.slnx
 ├── .gitignore
 └── README.md
@@ -157,6 +159,73 @@ Regla para estudiantes inexistentes o inactivos:
 
 ### Base de datos
 
+#### Opción A: script SQL (recomendado para la entrega)
+
+El script completo está en:
+
+```text
+database/SistemaNotasColegioDB.sql
+```
+
+Fue generado con `dotnet ef migrations script --idempotent` a partir de la migración real
+`20261118140736_InitialCreate` y se le agregó el encabezado que crea la base con la
+collation `Modern_Spanish_CI_AS` y ejecuta `USE [SistemaNotasColegioDB]`.
+
+Incluye:
+
+- Creación de `SistemaNotasColegioDB` si no existe.
+- Las 6 tablas del sistema y `__EFMigrationsHistory`.
+- Claves primarias, 7 claves foráneas con `ON DELETE NO ACTION`, 15 índices únicos
+  (8 índices únicos más las 7 claves primarias) y las restricciones
+  `CK_Calificaciones_Nota` y `CK_Calificaciones_Trimestre`.
+- Los roles iniciales con `SET IDENTITY_INSERT`: `1 = Secretaría` y `2 = Profesor`,
+  conservando la tilde que exige la autorización por rol.
+- El registro `20261118140736_InitialCreate | 10.0.15` en `__EFMigrationsHistory`.
+- Ejecución idempotente: puede correrse más de una vez sin duplicar objetos ni roles.
+- **No incluye** usuarios, contraseñas, hashes BCrypt, claves JWT ni secretos.
+- **No depende** de rutas MDF/LDF ni de una instancia SQL Server concreta.
+
+Requisitos:
+
+- SQL Server 2016 o superior (probado en SQL Server 2022 Express 16.0).
+- SSMS o `sqlcmd`.
+- Autenticación de Windows con permiso para crear bases de datos
+  (`dbcreator` o `sysadmin`).
+- No se necesita .NET para ejecutar únicamente el script.
+
+Pasos en SQL Server Management Studio:
+
+1. Abra SSMS y conéctese a la instancia local, por ejemplo `localhost\SQLEXPRESS`.
+2. Vaya a **Archivo > Abrir > Archivo...** y seleccione `database/SistemaNotasColegioDB.sql`.
+3. No seleccione una base de datos en la barra de herramientas: el script crea
+   `SistemaNotasColegioDB` y se posiciona en ella con `USE`.
+4. Presione **F5** (o **Ejecutar**).
+5. Actualice el nodo **Bases de datos** del Explorador de objetos y verifique
+   `SistemaNotasColegioDB` con las 7 tablas (6 del sistema y el historial de migraciones).
+
+Alternativa por consola:
+
+```powershell
+sqlcmd -S "localhost\SQLEXPRESS" -E -b -f 65001 -i database/SistemaNotasColegioDB.sql
+```
+
+> `-f 65001` indica UTF-8 para que `Secretaría` conserve la tilde.
+
+#### Opción B: aplicar la migración con EF Core
+
+Requiere .NET SDK 10 y `dotnet-ef` 10:
+
+```powershell
+dotnet ef database update `
+  --project SistemaNotasColegio/SistemaNotasColegio.csproj `
+  --startup-project SistemaNotasColegio/SistemaNotasColegio.csproj
+```
+
+Ambas opciones producen el mismo esquema. El script es un artefacto derivado de las
+migraciones; no las reemplaza.
+
+#### Cadena de conexión del backend
+
 La cadena de conexión está en `SistemaNotasColegio/appsettings.json`:
 
 ```text
@@ -165,13 +234,15 @@ Server=PAOLA\SQLEXPRESS;Database=SistemaNotasColegioDB;Trusted_Connection=True;T
 
 > `PAOLA\SQLEXPRESS` es el alias configurado en este equipo y resuelve a la misma instancia local de SQL Server Express. Puede cambiarse por `localhost\SQLEXPRESS` sin modificar el código.
 
-Aplicar la migración:
+En otro equipo, ajuste `Server` a la instancia local (por ejemplo
+`localhost\SQLEXPRESS`) o sobrescriba la cadena con la variable de entorno:
 
-```powershell
-dotnet ef database update `
-  --project SistemaNotasColegio/SistemaNotasColegio.csproj `
-  --startup-project SistemaNotasColegio/SistemaNotasColegio.csproj
+```text
+ConnectionStrings__DefaultConnection=Server=localhost\SQLEXPRESS;Database=SistemaNotasColegioDB;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
 ```
+
+Conserve el nombre `Database=SistemaNotasColegioDB` para que coincida con el script.
+Las variables de entorno tienen prioridad sobre `appsettings.json` y sobre User Secrets.
 
 ### Secretos obligatorios
 
@@ -206,6 +277,10 @@ Seed__Secretaria__Password
 La API no inicia si `Jwt:Key` falta o tiene menos de 32 bytes.
 
 ### Usuario inicial de Secretaría
+
+El script SQL **no incluye ningún usuario**. Al iniciar la API por primera vez contra la
+base recién creada, `DatabaseSeeder` crea la cuenta de Secretaría a partir de la
+configuración segura `Seed:Secretaria`.
 
 Al iniciar la API, `DatabaseSeeder`:
 
@@ -501,6 +576,29 @@ Ejecutada contra la API real y la base `SistemaNotasColegioDB`, con usuarios y d
 La Etapa 5 no modificó ningún archivo, migración, configuración ni funcionalidad de
 `SistemaNotasColegio/`. Los cambios se limitan a `SistemaNotasColegio.Web/`, al `README.md`
 raíz y al `.gitignore`.
+
+---
+
+## Pruebas del script SQL de entrega
+
+Ejecutadas sobre una base temporal `SistemaNotasColegioDB_Prueba_PAC`, nunca sobre
+`SistemaNotasColegioDB`:
+
+- El script se ejecutó completo con `sqlcmd -b -f 65001` y terminó con código 0.
+- Collation resultante: `Modern_Spanish_CI_AS`; nivel de compatibilidad 160.
+- Se crearon las 7 tablas: `Roles`, `Usuarios`, `Estudiantes`, `Materias`,
+  `AsignacionesMaterias`, `Calificaciones` y `__EFMigrationsHistory`.
+- Se verificaron 7 claves primarias, 7 claves foráneas con `NO_ACTION`, las 2
+  restricciones CHECK y 15 índices únicos (8 índices únicos más las 7 claves primarias).
+- Roles: `1 = Secretaría` (el hexadecimal `...00ED...` confirma la `í`) y `2 = Profesor`.
+- `__EFMigrationsHistory`: una fila con `20261118140736_InitialCreate` y `10.0.15`.
+- Usuarios: 0; el script no incluye datos personales ni credenciales.
+- Segunda ejecución: código 0 y sin duplicados (7 tablas, 2 roles, 1 fila de historial).
+- API de prueba contra la base temporal: `GET /api/health` respondió `200`; el seeder creó
+  1 usuario con rol Secretaría y hash BCrypt; `POST /api/auth/login` respondió `200` con
+  credenciales de prueba. El token y las credenciales no se imprimieron.
+- La base temporal se eliminó al finalizar. La base `SistemaNotasColegioDB` quedó intacta:
+  2 usuarios, 2 roles y 1 fila de historial, sin cambios.
 
 ---
 
