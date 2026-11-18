@@ -2,7 +2,7 @@
 
 Sistema web para la gestión de estudiantes, materias, asignaciones de profesores y calificaciones trimestrales.
 
-**Estado actual:** Etapa 4 finalizada. La API cuenta con autenticación JWT, hash de contraseñas con BCrypt, autorización por roles, gestión de usuarios, asignación de profesores a materias, CRUD de estudiantes y materias con activación/desactivación lógica, registro y corrección de calificaciones por parte del Profesor, y consulta del boletín académico por parte de la Secretaría. El frontend se desarrollará posteriormente en un proyecto independiente.
+**Estado actual:** Etapa 5 finalizada. La API cuenta con autenticación JWT, hash de contraseñas con BCrypt, autorización por roles, gestión de usuarios, asignación de profesores a materias, CRUD de estudiantes y materias con activación/desactivación lógica, registro y corrección de calificaciones por parte del Profesor, y consulta del boletín académico por parte de la Secretaría. El frontend Vue 3 + Vite está implementado en el proyecto hermano `SistemaNotasColegio.Web/` y consume la API real.
 
 ---
 
@@ -14,7 +14,7 @@ Sistema web para la gestión de estudiantes, materias, asignaciones de profesore
 | ORM | Entity Framework Core 10 |
 | Base de datos | SQL Server Express |
 | Seguridad | JWT Bearer + BCrypt.Net-Next |
-| Frontend | Vue.js 3 + Vite + JavaScript (pendiente, en `SistemaNotasColegio.Web/`) |
+| Frontend | Vue.js 3 + Vite + JavaScript |
 | Control de versiones | Git y GitHub |
 
 ---
@@ -37,7 +37,24 @@ SistemaNotasColegio_Examen_Practc_PAC/
 │   ├── Program.cs
 │   ├── appsettings.json
 │   └── SistemaNotasColegio.csproj
-├── SistemaNotasColegio.Web/                 # Frontend Vue 3 + Vite (pendiente, Etapa 5)
+├── SistemaNotasColegio.Web/                 # Frontend Vue 3 + Vite
+│   ├── public/                              # favicon
+│   ├── src/
+│   │   ├── components/                      # Tablas, modales, badges, boletín
+│   │   ├── composables/                     # Paginación local
+│   │   ├── layouts/                         # Layout con sidebar y topbar
+│   │   ├── router/                          # Rutas y guard de roles
+│   │   ├── services/                        # Axios central y servicios por recurso
+│   │   ├── stores/                          # Sesión, carga, notificaciones, confirmaciones
+│   │   ├── styles/                          # Estilos institucionales e impresión
+│   │   ├── utils/                           # Formatos, validaciones, errores
+│   │   └── views/                           # Vistas de Secretaría y Profesor
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── README.md
 ├── SistemaNotasColegio_Examen_Practc_PAC.slnx
 ├── .gitignore
 └── README.md
@@ -223,6 +240,26 @@ dotnet run --project SistemaNotasColegio/SistemaNotasColegio.csproj --launch-pro
 dotnet build SistemaNotasColegio_Examen_Practc_PAC.slnx --nologo
 ```
 
+### Ejecutar el frontend
+
+Requisitos: Node.js 20 o superior y npm 10 o superior.
+
+```powershell
+cd SistemaNotasColegio.Web
+npm install
+copy .env.example .env
+npm run dev
+```
+
+- Frontend en desarrollo: `http://localhost:5173`
+- El archivo `.env` solo debe contener la URL de la API: `VITE_API_BASE_URL=http://localhost:5012`
+- `.env` es local y está excluido por Git; `.env.example` no contiene credenciales.
+- Compilación de producción: `npm run build` (salida en `dist/`).
+- Vista previa de la compilación: `npm run preview` (`http://localhost:4173`).
+
+El backend ya permite CORS para los puertos `5173` y `4173`. Los detalles de instalación,
+rutas, funcionalidades y limitaciones del frontend están en `SistemaNotasColegio.Web/README.md`.
+
 ---
 
 ## Autenticación y autorización
@@ -399,6 +436,74 @@ No se modificó el esquema: `has-pending-model-changes` reporta que el modelo no
 
 ---
 
+## Pruebas ejecutadas en la Etapa 5 (frontend)
+
+### Compilación
+
+```text
+npm run build → 131 módulos transformados, 0 errores, 0 advertencias
+```
+
+Salida generada en `SistemaNotasColegio.Web/dist/`.
+
+### Integración real con la API (27/27 comprobaciones)
+
+Script contra `http://localhost:5012` con datos temporales `TEST-T5-*`:
+
+- Salud de la API y conexión a SQL Server; login de Secretaría (`200`, rol 1) y contraseña inválida (`401`).
+- Alta de estudiante, materia y dos profesores (`201`).
+- Asignación de la misma materia a dos profesores (`201`).
+- `GET /api/profesores/mis-asignaciones` devuelve la materia asignada con `materiaCodigo` y `materiaActiva`.
+- Profesor consultando `GET /api/estudiantes` y `GET /api/usuarios` (`403`, limitación documentada).
+- Registro de T1, T2 y T3 (`201`); duplicado (`409`).
+- Listado con nombre del estudiante y autor; corrección con `PUT` (`200`, `fechaActualizacion`).
+- Otro profesor intentando corregir una nota ajena (`403`).
+- Boletín: T1=85, T2=70, T3=90, `promedioAnual` 82 (`Math.Round` entero) y estado `APROBADO`.
+- Profesor consultando boletín (`403`); eliminación de asignación con notas (`409`) y sin notas (`204`).
+- Nota sobre estudiante inactivo rechazada (`400`) y reactivación (`200`).
+- Limpieza verificada: 0 residuos `TEST-T5-*`.
+
+### Verificación funcional de la interfaz en navegador
+
+Ejecutada contra la API real y la base `SistemaNotasColegioDB`, con usuarios y datos temporales:
+
+- Login de Secretaría con redirección a `/secretaria` y datos reales en el panel.
+- Estudiantes: alta mediante el formulario, búsqueda, edición, desactivación (desaparece del listado activo) y reactivación con `incluirInactivos`.
+- Materias: alta, edición y validaciones del formulario.
+- Usuarios: alta de Profesor con rol 2 y edición de datos sin cambiar contraseña.
+- Asignaciones: creación desde el modal, eliminación correcta y mensaje del backend al intentar eliminar una asignación con notas (`409`).
+- Logout con confirmación y limpieza de la sesión.
+- Profesor: panel con conteos reales, `mis asignaciones`, registro de T1/T2/T3 (80/70/90), validación previa de duplicados sin llamar a la API y corrección de T1 a 85 mediante `PUT`.
+- Propiedad de las notas: un segundo Profesor ve sus propias notas como editables y las del primero como «Solo lectura» con el botón deshabilitado.
+- Boletín: búsqueda del estudiante, tabla con 85/70/90/82, estado «Aprobado», botón de impresión invocando `window.print()` (diálogo interceptado) y diseño formal.
+- Rutas protegidas: Profesor en `/secretaria/...` redirigido a `/403`.
+- Sesión expirada: token alterado → `401`, sesión eliminada y redirección a `/login?sesionExpirada=1` con mensaje.
+- Credenciales incorrectas: mensaje «Usuario o contraseña incorrectos.» y estado «Servidor conectado».
+- API fuera de línea: con el backend detenido, el login muestra «Sin conexión con la API» y, al intentar ingresar, «No se pudo conectar con la API en http://localhost:5012. Verifique que el backend esté en ejecución.», sin crear sesión. Tras reiniciar la API el estado vuelve a «Servidor conectado».
+- Responsive: a 526 px de ancho no hay desbordamiento horizontal en panel, estudiantes, materias, usuarios, asignaciones ni boletines (la tabla del boletín se desplaza dentro de su contenedor); el menú lateral pasa a modo off-canvas (264 px) con botón de apertura y fondo para cerrar. Se corrigió un desbordamiento de 11 px del boletín añadiendo `min-width: 0` a los hijos de `.boletin-layout`.
+- Base final: 1 usuario (Secretaría inicial), 0 estudiantes, 0 materias, 0 asignaciones y 0 calificaciones.
+
+### Pruebas no ejecutadas
+
+- Captura de pantalla del navegador: el entorno no expone una ventana visible para `browser.screenshot`.
+- Diálogo de impresión real: se interceptó `window.print()` para no abrir el diálogo del sistema; los estilos `@media print` se verificaron por revisión de CSS.
+- Suite automatizada de componentes/E2E y pruebas en navegadores distintos de Chromium.
+- No se pudo variar el ancho del viewport con una herramienta; la comprobación responsive se hizo con el ancho real disponible (526 px) y revisión de las media queries.
+
+### Limitaciones documentadas (sin modificar el backend)
+
+- El rol Profesor no puede listar estudiantes (`GET /api/estudiantes` es exclusivo de Secretaría). El formulario de calificaciones solicita el identificador numérico y sugiere estudiantes ya calificados. Se documentó una mejora futura (endpoint de solo lectura para Profesor) sin implementarla.
+- No existe endpoint de boletines para Profesor; el boletín es exclusivo de Secretaría.
+- No hay endpoint de estadísticas: los conteos de los paneles se calculan con los listados reales, sin cifras inventadas.
+
+### Backend sin cambios
+
+La Etapa 5 no modificó ningún archivo, migración, configuración ni funcionalidad de
+`SistemaNotasColegio/`. Los cambios se limitan a `SistemaNotasColegio.Web/`, al `README.md`
+raíz y al `.gitignore`.
+
+---
+
 ## Control de versiones
 
 - Repositorio Git local en la rama `main`.
@@ -416,7 +521,7 @@ No se modificó el esquema: `has-pending-model-changes` reporta que el modelo no
 | Etapa 2: login, JWT, BCrypt, autorización por roles, usuarios y asignaciones | **Finalizada** |
 | Etapa 3: CRUD de estudiantes y materias | **Finalizada** |
 | Etapa 4: registro/corrección de calificaciones y reglas de promedio/estado | **Finalizada** |
-| Etapa 5: frontend Vue 3 + Vite | Pendiente |
+| Etapa 5: frontend Vue 3 + Vite | **Finalizada** |
 | Etapa 6: reportes, pruebas finales, documentación y publicación en GitHub | Pendiente |
 
 ---
@@ -432,4 +537,8 @@ No se modificó el esquema: `has-pending-model-changes` reporta que el modelo no
 - El promedio anual no se guarda en la base: se calcula en cada consulta del boletín, por lo que no puede quedar desactualizado.
 - La corrección de notas (`PUT`) reutiliza el registro original y conserva la trazabilidad en `ActualizadoPorUsuarioId`.
 - El endpoint de asignaciones del Profesor y los de calificaciones obtienen el ID del Profesor desde el JWT (`nameid`/`sub`); nunca desde el cuerpo o la query del cliente.
+- La Etapa 5 agrega un proyecto hermano `SistemaNotasColegio.Web/`; el backend no se modificó. Se eligió JavaScript (no TypeScript) de forma consistente con la convención del repositorio.
+- El frontend no usa Bootstrap JS ni Pinia: los modales, notificaciones, confirmaciones y paginación son componentes propios sobre estilos Bootstrap 5.
+- La sesión se guarda en `localStorage` (`snc.sesion`) con token, expiración y datos del usuario; la contraseña nunca se almacena. El `rolId` del backend es la fuente de verdad para el guard de rutas.
+- El boletín se imprime con `window.print()` y reglas `@media print`; no se genera PDF en el servidor.
 - La base `INS600_Notas_AlvarezDB` no fue modificada ni utilizada.
