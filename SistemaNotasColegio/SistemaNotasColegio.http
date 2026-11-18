@@ -1,11 +1,70 @@
 @SistemaNotasColegio_HostAddress = http://localhost:5012
+@tokenSecretaria = <pegar-token-de-login-secretaria>
+@tokenProfesor = <pegar-token-de-login-profesor>
 
-GET {{SistemaNotasColegio_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
-
+### Salud
 GET {{SistemaNotasColegio_HostAddress}}/api/health
 Accept: application/json
 
-###
+### Login de Secretaría
+POST {{SistemaNotasColegio_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "nombreUsuario": "secretaria",
+  "password": "<contraseña-configurada-en-user-secrets>"
+}
+
+### Login de Profesor
+POST {{SistemaNotasColegio_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "nombreUsuario": "<usuario-profesor>",
+  "password": "<contraseña>"
+}
+
+### Listar usuarios (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/usuarios?incluirInactivos=true
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Crear profesor (Secretaría)
+POST {{SistemaNotasColegio_HostAddress}}/api/usuarios
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "cedula": "1712345678",
+  "nombres": "Nombre",
+  "apellidos": "Apellido",
+  "correo": "profesor@colegio.local",
+  "nombreUsuario": "profesor",
+  "password": "<contraseña-de-al-menos-8-caracteres>",
+  "rolId": 2
+}
+
+### Listar roles (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/roles
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Crear asignación profesor-materia (Secretaría)
+POST {{SistemaNotasColegio_HostAddress}}/api/asignaciones
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "profesorId": 2,
+  "materiaId": 1
+}
+
+### Listar asignaciones (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/asignaciones
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Acceso denegado para Profesor
+GET {{SistemaNotasColegio_HostAddress}}/api/usuarios
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
