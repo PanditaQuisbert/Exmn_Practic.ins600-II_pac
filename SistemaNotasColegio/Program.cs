@@ -45,9 +45,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("database");
-
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -66,7 +63,6 @@ app.UseCors("Frontend");
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/api/health");
 
 app.Run();
 

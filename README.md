@@ -25,6 +25,7 @@ Sistema web para la gestión de estudiantes, materias, asignaciones de profesore
 SistemaNotasColegio_Examen_Practc_PAC/
 ├── SistemaNotasColegio/                 # Backend ASP.NET Core Web API
 │   ├── Controllers/
+│   │   ├── HealthController.cs           # Verificación de API y base de datos
 │   │   └── WeatherForecastController.cs # Plantilla conservada, oculta de Swagger
 │   ├── Data/
 │   │   ├── AppDbContext.cs
@@ -36,7 +37,7 @@ SistemaNotasColegio_Examen_Practc_PAC/
 │   ├── Program.cs
 │   ├── appsettings.json
 │   └── SistemaNotasColegio.csproj
-├── SistemaNotasColegio.Web/             # Frontend Vue 3 + Vite (Etapa 5)
+├── SistemaNotasColegio.Web/             # Frontend Vue 3 + Vite (pendiente, Etapa 5)
 ├── SistemaNotasColegio_Examen_Practc_PAC.slnx
 ├── .gitignore
 └── README.md
@@ -142,6 +143,15 @@ dotnet build SistemaNotasColegio_Examen_Practc_PAC.slnx --nologo
 
 ---
 
+## Control de versiones
+
+- Repositorio Git local inicializado en la rama `main`.
+- Se versionan el backend, la migración, la documentación y los archivos de configuración sin secretos.
+- No se versionan `bin/`, `obj/`, `.vs/`, archivos `*.user`, `node_modules/` ni secretos locales.
+- La publicación en GitHub queda pendiente: no hay un remoto configurado ni GitHub CLI instalado.
+
+---
+
 ## Endpoints actuales
 
 | Método | Ruta | Descripción |
@@ -166,8 +176,8 @@ La implementación de login, generación/validación de JWT, hash de contraseña
 | Etapa | Estado |
 |---|---|
 | Etapa 1: infraestructura, EF Core, SQL Server, entidades, migración, Swagger, CORS y Git | **Finalizada** |
-| Etapa 2: usuarios, roles, BCrypt, JWT y autorización | Pendiente |
-| Etapa 3: CRUD de estudiantes, materias, usuarios y asignaciones | Pendiente |
+| Etapa 2: login, JWT, BCrypt, autorización por roles y gestión de usuarios | Pendiente |
+| Etapa 3: CRUD de estudiantes, materias y asignaciones | Pendiente |
 | Etapa 4: registro/corrección de calificaciones y reglas de promedio/estado | Pendiente |
 | Etapa 5: frontend Vue 3 + Vite | Pendiente |
 | Etapa 6: boletín, reportes, pruebas, documentación final y publicación en GitHub | Pendiente |
