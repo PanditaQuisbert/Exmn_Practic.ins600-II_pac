@@ -68,3 +68,92 @@ Accept: application/json
 GET {{SistemaNotasColegio_HostAddress}}/api/usuarios
 Authorization: Bearer {{tokenProfesor}}
 Accept: application/json
+
+### Listar estudiantes (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/estudiantes?incluirInactivos=true
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Crear estudiante (Secretaría)
+POST {{SistemaNotasColegio_HostAddress}}/api/estudiantes
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "cedula": "1712345678",
+  "nombres": "Nombre",
+  "apellidos": "Apellido"
+}
+
+### Consultar estudiante (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/estudiantes/1
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Modificar estudiante (Secretaría)
+PUT {{SistemaNotasColegio_HostAddress}}/api/estudiantes/1
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "cedula": "1712345678",
+  "nombres": "Nombre Modificado",
+  "apellidos": "Apellido"
+}
+
+### Activar o desactivar estudiante (Secretaría)
+PATCH {{SistemaNotasColegio_HostAddress}}/api/estudiantes/1/estado
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "activo": false
+}
+
+### Listar materias (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/materias?incluirInactivas=true
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Crear materia (Secretaría)
+POST {{SistemaNotasColegio_HostAddress}}/api/materias
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "codigo": "MAT-001",
+  "nombre": "Matemáticas"
+}
+
+### Consultar materia (Secretaría)
+GET {{SistemaNotasColegio_HostAddress}}/api/materias/1
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Modificar materia (Secretaría)
+PUT {{SistemaNotasColegio_HostAddress}}/api/materias/1
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "codigo": "MAT-001",
+  "nombre": "Matemáticas Avanzadas"
+}
+
+### Activar o desactivar materia (Secretaría)
+PATCH {{SistemaNotasColegio_HostAddress}}/api/materias/1/estado
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "activo": false
+}
+
+### Profesor no puede listar estudiantes (403)
+GET {{SistemaNotasColegio_HostAddress}}/api/estudiantes
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Sin token no se puede listar materias (401)
+GET {{SistemaNotasColegio_HostAddress}}/api/materias
+Accept: application/json

@@ -86,6 +86,8 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IEstudianteService, EstudianteService>();
+builder.Services.AddScoped<IMateriaService, MateriaService>();
 builder.Services.AddScoped<IAsignacionService, AsignacionService>();
 builder.Services.AddScoped<IRolService, RolService>();
 builder.Services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();

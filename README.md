@@ -2,7 +2,7 @@
 
 Sistema web para la gestión de estudiantes, materias, asignaciones de profesores y calificaciones trimestrales.
 
-**Estado actual:** Etapa 2 finalizada. La API cuenta con autenticación JWT, hash de contraseñas con BCrypt, autorización por roles, gestión de usuarios y asignación de profesores a materias. El frontend se desarrollará posteriormente en un proyecto independiente.
+**Estado actual:** Etapa 3 finalizada. La API cuenta con autenticación JWT, hash de contraseñas con BCrypt, autorización por roles, gestión de usuarios, asignación de profesores a materias y CRUD de estudiantes y materias con activación/desactivación lógica. El frontend se desarrollará posteriormente en un proyecto independiente.
 
 ---
 
@@ -25,7 +25,7 @@ Sistema web para la gestión de estudiantes, materias, asignaciones de profesore
 SistemaNotasColegio_Examen_Practc_PAC/
 ├── SistemaNotasColegio/                     # Backend ASP.NET Core Web API
 │   ├── Configuration/                       # JWT, política de contraseñas, roles
-│   ├── Controllers/                         # Auth, usuarios, roles, asignaciones, salud
+│   ├── Controllers/                         # Auth, usuarios, estudiantes, materias, roles, asignaciones, salud
 │   ├── Data/
 │   │   ├── AppDbContext.cs
 │   │   ├── Configurations/                  # Configuraciones Fluent API
@@ -33,7 +33,7 @@ SistemaNotasColegio_Examen_Practc_PAC/
 │   ├── DTOs/                                # Contratos de entrada y salida
 │   ├── Migrations/                          # Migración InitialCreate
 │   ├── Models/                              # Entidades del dominio
-│   ├── Services/                            # Lógica de autenticación y gestión
+│   ├── Services/                            # Lógica de autenticación, gestión, estudiantes y materias
 │   ├── Program.cs
 │   ├── appsettings.json
 │   └── SistemaNotasColegio.csproj
@@ -235,6 +235,16 @@ El rol se toma **exclusivamente del token firmado**. La API nunca confía en un 
 | POST | `/api/usuarios` | Secretaría | Registra un usuario con rol 1 o 2. |
 | PUT | `/api/usuarios/{id}` | Secretaría | Modifica datos, rol y opcionalmente contraseña. |
 | PATCH | `/api/usuarios/{id}/estado` | Secretaría | Activa o desactiva un usuario. |
+| GET | `/api/estudiantes` | Secretaría | Lista estudiantes activos; admite `incluirInactivos`. |
+| GET | `/api/estudiantes/{id}` | Secretaría | Consulta un estudiante, esté activo o inactivo. |
+| POST | `/api/estudiantes` | Secretaría | Registra un estudiante con cédula única. |
+| PUT | `/api/estudiantes/{id}` | Secretaría | Modifica cédula, nombres y apellidos. |
+| PATCH | `/api/estudiantes/{id}/estado` | Secretaría | Activa o desactiva lógicamente un estudiante. |
+| GET | `/api/materias` | Secretaría | Lista materias activas; admite `incluirInactivas`. |
+| GET | `/api/materias/{id}` | Secretaría | Consulta una materia, esté activa o inactiva. |
+| POST | `/api/materias` | Secretaría | Registra una materia con código único. |
+| PUT | `/api/materias/{id}` | Secretaría | Modifica código y nombre. |
+| PATCH | `/api/materias/{id}/estado` | Secretaría | Activa o desactiva lógicamente una materia. |
 | GET | `/api/roles` | Secretaría | Lista los roles permitidos. |
 | GET | `/api/asignaciones` | Secretaría | Lista asignaciones; filtra por `profesorId` o `materiaId`. |
 | POST | `/api/asignaciones` | Secretaría | Asigna una materia activa a un profesor activo. |
@@ -300,6 +310,30 @@ No se modificó la migración inicial: `has-pending-model-changes` reporta que e
 
 ---
 
+## Pruebas ejecutadas en la Etapa 3
+
+Batería real contra la API en ejecución y la base `SistemaNotasColegioDB`: **73 comprobaciones, 0 fallos**.
+
+- Secretaría listó estudiantes y materias (`200`).
+- Secretaría registró un estudiante y una materia (`201`).
+- Secretaría consultó los registros creados (`200`).
+- Secretaría modificó nombres, apellidos, cédula, código y nombre de materia (`200`).
+- Secretaría desactivó y reactivó estudiante y materia (`200`).
+- Los registros inactivos dejan de aparecer en el listado por defecto y sí aparecen con `incluirInactivos=true` / `incluirInactivas=true`.
+- Cédula duplicada al crear y al actualizar (`409`).
+- Código de materia duplicado al crear y al actualizar (`409`).
+- Campos vacíos, longitudes y formatos inválidos (`400`).
+- Consulta, modificación y cambio de estado de identificadores inexistentes (`404`).
+- Profesor intentando listar, crear, modificar o cambiar estado de estudiantes y materias (`403`).
+- Solicitudes sin token y con token inválido (`401`).
+- Restricciones `UNIQUE` de cédula y código verificadas directamente en SQL Server con transacciones revertidas.
+- Se insertó una calificación temporal, se desactivaron el estudiante y la materia, y se verificó que la calificación y el historial permanecen en la base.
+- Datos temporales eliminados; estado final: 1 usuario (Secretaría inicial), 0 estudiantes, 0 materias, 0 asignaciones y 0 calificaciones.
+
+No se modificó el esquema: no hay migraciones pendientes.
+
+---
+
 ## Control de versiones
 
 - Repositorio Git local en la rama `main`.
@@ -315,7 +349,7 @@ No se modificó la migración inicial: `has-pending-model-changes` reporta que e
 |---|---|
 | Etapa 1: infraestructura, EF Core, SQL Server, entidades, migración, Swagger, CORS y Git | **Finalizada** |
 | Etapa 2: login, JWT, BCrypt, autorización por roles, usuarios y asignaciones | **Finalizada** |
-| Etapa 3: CRUD de estudiantes y materias | Pendiente |
+| Etapa 3: CRUD de estudiantes y materias | **Finalizada** |
 | Etapa 4: registro/corrección de calificaciones y reglas de promedio/estado | Pendiente |
 | Etapa 5: frontend Vue 3 + Vite | Pendiente |
 | Etapa 6: boletín, reportes, pruebas finales, documentación y publicación en GitHub | Pendiente |
@@ -327,4 +361,6 @@ No se modificó la migración inicial: `has-pending-model-changes` reporta que e
 - Se conservó el controlador de plantilla `WeatherForecastController` por indicación expresa de no eliminar archivos existentes; solo se ocultó de Swagger.
 - No se agregó ningún rol adicional ni registro público.
 - La Etapa 2 no modifica el esquema de base de datos.
+- La Etapa 3 tampoco modifica el esquema: usa los campos existentes `Cedula`, `Nombres`, `Apellidos` y `Activo` en estudiantes, y `Codigo`, `Nombre` y `Activo` en materias. El modelo no define código estudiantil ni descripción de materia, por lo que no se inventaron campos.
+- Estudiantes y materias no se eliminan físicamente: solo se activan o desactivan para preservar calificaciones e historial académico.
 - La base `INS600_Notas_AlvarezDB` no fue modificada ni utilizada.
