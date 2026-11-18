@@ -2,7 +2,7 @@
 
 Sistema web para la gestión de estudiantes, materias, asignaciones de profesores y calificaciones trimestrales.
 
-**Estado actual:** Etapa 3 finalizada. La API cuenta con autenticación JWT, hash de contraseñas con BCrypt, autorización por roles, gestión de usuarios, asignación de profesores a materias y CRUD de estudiantes y materias con activación/desactivación lógica. El frontend se desarrollará posteriormente en un proyecto independiente.
+**Estado actual:** Etapa 4 finalizada. La API cuenta con autenticación JWT, hash de contraseñas con BCrypt, autorización por roles, gestión de usuarios, asignación de profesores a materias, CRUD de estudiantes y materias con activación/desactivación lógica, registro y corrección de calificaciones por parte del Profesor, y consulta del boletín académico por parte de la Secretaría. El frontend se desarrollará posteriormente en un proyecto independiente.
 
 ---
 
@@ -25,7 +25,7 @@ Sistema web para la gestión de estudiantes, materias, asignaciones de profesore
 SistemaNotasColegio_Examen_Practc_PAC/
 ├── SistemaNotasColegio/                     # Backend ASP.NET Core Web API
 │   ├── Configuration/                       # JWT, política de contraseñas, roles
-│   ├── Controllers/                         # Auth, usuarios, estudiantes, materias, roles, asignaciones, salud
+│   ├── Controllers/                         # Auth, usuarios, estudiantes, materias, roles, asignaciones, calificaciones, boletines, profesores, salud
 │   ├── Data/
 │   │   ├── AppDbContext.cs
 │   │   ├── Configurations/                  # Configuraciones Fluent API
@@ -33,7 +33,7 @@ SistemaNotasColegio_Examen_Practc_PAC/
 │   ├── DTOs/                                # Contratos de entrada y salida
 │   ├── Migrations/                          # Migración InitialCreate
 │   ├── Models/                              # Entidades del dominio
-│   ├── Services/                            # Lógica de autenticación, gestión, estudiantes y materias
+│   ├── Services/                            # Lógica de autenticación, gestión, estudiantes, materias, calificaciones y boletines
 │   ├── Program.cs
 │   ├── appsettings.json
 │   └── SistemaNotasColegio.csproj
@@ -54,24 +54,52 @@ SistemaNotasColegio_Examen_Practc_PAC/
   - Crea y modifica materias.
   - Crea, consulta, modifica y activa/desactiva usuarios.
   - Asigna profesores a materias.
-  - No registra notas.
+  - Consulta boletines académicos.
+  - No registra, modifica ni consulta calificaciones.
 - **Profesor**
+  - Consulta únicamente las materias que tiene asignadas.
   - Registra y corrige notas únicamente de las materias que tiene asignadas.
   - No puede crear, modificar ni eliminar usuarios.
+  - No puede consultar boletines.
 
 No existen roles de Administrador ni Estudiante. No existe registro público.
 
 ### Calificaciones
 
-- Cada estudiante tiene **una sola nota por materia y por trimestre**.
+- Cada estudiante tiene **una sola nota por materia y por trimestre** (índice único en SQL Server).
 - Los trimestres son: **primero, segundo y tercero**.
 - Las notas van de **0 a 100**.
 - El promedio anual es el promedio de los tres trimestres, **redondeado**.
 - La nota mínima de aprobación es **51**.
 - Si falta alguna de las tres notas, el estado debe ser **INCOMPLETO**.
-- El sistema debe generar el **boletín individual** del estudiante.
+- El sistema genera el **boletín individual** del estudiante.
 
-> Las reglas de promedio, estado y boletín se implementarán en las etapas de calificaciones y reportes. El modelo de datos ya impone las restricciones de nota, trimestre y unicidad.
+Reglas implementadas en la Etapa 4:
+
+- El promedio anual se calcula únicamente cuando existen las **tres** notas trimestrales: `(T1 + T2 + T3) / 3`.
+- Redondeo explícito: `Math.Round(promedio, 0, MidpointRounding.AwayFromZero)`. Un valor terminado en `.5` se aleja de cero; por ejemplo, `50.5` se redondea a `51`.
+- Estado académico: promedio `>= 51` → `APROBADO`; promedio `< 51` → `REPROBADO`; promedio nulo o nota faltante → `INCOMPLETO` con `promedioAnual: null`.
+- El promedio **no se almacena**: se calcula al consultar el boletín, de modo que nunca queda desactualizado.
+- `POST /api/calificaciones` crea una nota nueva. Si ya existe una nota para el mismo estudiante, materia y trimestre responde `409 Conflict` e indica usar `PUT` para corregirla.
+- `PUT /api/calificaciones/{id}` corrige la nota existente sin cambiar estudiante, materia ni trimestre, y registra el usuario que actualizó (`ActualizadoPorUsuarioId`).
+- El Profesor nunca envía su propio ID: la API lo obtiene del claim `nameid`/`sub` del JWT.
+- Un Profesor puede leer las calificaciones de las materias que tiene asignadas, pero solo puede modificar las que él mismo registró.
+- Registrar o modificar una nota en una materia no asignada devuelve `403 Forbidden`.
+- Los filtros de listado (`estudianteId`, `materiaId`, `trimestre`) siempre se restringen a las materias asignadas al Profesor autenticado; filtrar por una materia no asignada devuelve una lista vacía.
+- El Profesor no puede acceder a boletines y la Secretaría no puede registrar, modificar ni consultar calificaciones (`403`).
+
+### Boletín académico
+
+`GET /api/boletines/estudiantes/{estudianteId}` (solo Secretaría) devuelve:
+
+- Datos del estudiante: id, cédula, nombres, apellidos y estado `activo`.
+- Una fila por materia con las notas de los tres trimestres, el promedio anual y el estado académico.
+- El boletín incluye las materias activas y también las materias inactivas que ya tengan notas registradas, para preservar el historial académico.
+
+Regla para estudiantes inexistentes o inactivos:
+
+- Estudiante **inexistente** → `404 Not Found`.
+- Estudiante **inactivo** → `200 OK`. Se permite consultar su boletín porque el historial académico debe permanecer disponible; la respuesta incluye `"activo": false` para que el consumidor distinga su estado.
 
 ---
 
@@ -249,6 +277,12 @@ El rol se toma **exclusivamente del token firmado**. La API nunca confía en un 
 | GET | `/api/asignaciones` | Secretaría | Lista asignaciones; filtra por `profesorId` o `materiaId`. |
 | POST | `/api/asignaciones` | Secretaría | Asigna una materia activa a un profesor activo. |
 | DELETE | `/api/asignaciones/{id}` | Secretaría | Elimina una asignación sin calificaciones registradas. |
+| GET | `/api/profesores/mis-asignaciones` | Profesor | Lista las materias asignadas al Profesor autenticado; el ID se toma del JWT. |
+| GET | `/api/calificaciones` | Profesor | Lista calificaciones de sus materias; filtra por `estudianteId`, `materiaId` y `trimestre`. |
+| GET | `/api/calificaciones/{id}` | Profesor | Consulta una calificación de una materia asignada. |
+| POST | `/api/calificaciones` | Profesor | Registra una nota; si ya existe responde `409 Conflict`. |
+| PUT | `/api/calificaciones/{id}` | Profesor | Corrige una nota registrada por el propio Profesor. |
+| GET | `/api/boletines/estudiantes/{estudianteId}` | Secretaría | Consulta el boletín con notas trimestrales, promedio anual y estado. |
 | GET | `/weatherforecast` | Anónimo | Endpoint de plantilla conservado, oculto de Swagger. |
 
 ### Respuesta de login
@@ -334,6 +368,37 @@ No se modificó el esquema: no hay migraciones pendientes.
 
 ---
 
+## Pruebas ejecutadas en la Etapa 4
+
+Batería real contra la API en ejecución y la base `SistemaNotasColegioDB`: **88 comprobaciones, 0 fallos**.
+
+- Profesor consultó sus asignaciones (`200`); cada Profesor vio únicamente sus propias materias.
+- Un Profesor no pudo consultar las asignaciones de otro: el parámetro `profesorId` enviado por el cliente se ignora y la identidad se toma del JWT.
+- Profesor registró una nota válida (`201`) y corrigió la nota existente (`200`) conservando el mismo registro.
+- Duplicado de estudiante/materia/trimestre rechazado con `409`; verificado en SQL Server que solo existe una fila.
+- Nota menor que 0 y mayor que 100 (`400`).
+- Trimestre `0` y `4` (`400`).
+- Estudiante inexistente y materia inexistente (`404`).
+- Profesor registrando en materia no asignada (`403`).
+- Profesor intentando modificar una nota registrada por otro Profesor (`403`, mensaje específico).
+- Profesor consultó sus calificaciones y una nota por id (`200`).
+- Consulta de una nota de materia no asignada (`403`); listado filtrado por materia no asignada devuelve lista vacía sin fuga de información.
+- Filtros por estudiante, materia y trimestre respetando las asignaciones (`200`).
+- Secretaría no pudo listar, registrar, modificar ni consultar calificaciones (`403`).
+- Profesor no pudo consultar boletines (`403`).
+- Secretaría consultó el boletín (`200`) con datos del estudiante y las tres notas.
+- Boletín con una nota faltante devolvió `promedioAnual: null` y estado `INCOMPLETO`.
+- Cálculos verificados: notas `85, 70, 60` → promedio `72`, `APROBADO`; promedio `50.5` → `51`, `APROBADO`; promedio `50` → `REPROBADO`; promedio `51` → `APROBADO`.
+- Boletín de estudiante inexistente (`404`); boletín de estudiante inactivo (`200`, con `activo: false`).
+- Solicitudes sin token y con token inválido (`401`) en calificaciones, asignaciones del Profesor y boletines.
+- El índice único de SQL Server rechazó una inserción duplicada directa (error 2601/2627).
+- La corrección mantuvo una sola fila y guardó `ActualizadoPorUsuarioId`.
+- Datos temporales eliminados; estado final: 1 usuario (Secretaría inicial), 0 estudiantes, 0 materias, 0 asignaciones y 0 calificaciones.
+
+No se modificó el esquema: `has-pending-model-changes` reporta que el modelo no cambió.
+
+---
+
 ## Control de versiones
 
 - Repositorio Git local en la rama `main`.
@@ -350,9 +415,9 @@ No se modificó el esquema: no hay migraciones pendientes.
 | Etapa 1: infraestructura, EF Core, SQL Server, entidades, migración, Swagger, CORS y Git | **Finalizada** |
 | Etapa 2: login, JWT, BCrypt, autorización por roles, usuarios y asignaciones | **Finalizada** |
 | Etapa 3: CRUD de estudiantes y materias | **Finalizada** |
-| Etapa 4: registro/corrección de calificaciones y reglas de promedio/estado | Pendiente |
+| Etapa 4: registro/corrección de calificaciones y reglas de promedio/estado | **Finalizada** |
 | Etapa 5: frontend Vue 3 + Vite | Pendiente |
-| Etapa 6: boletín, reportes, pruebas finales, documentación y publicación en GitHub | Pendiente |
+| Etapa 6: reportes, pruebas finales, documentación y publicación en GitHub | Pendiente |
 
 ---
 
@@ -363,4 +428,8 @@ No se modificó el esquema: no hay migraciones pendientes.
 - La Etapa 2 no modifica el esquema de base de datos.
 - La Etapa 3 tampoco modifica el esquema: usa los campos existentes `Cedula`, `Nombres`, `Apellidos` y `Activo` en estudiantes, y `Codigo`, `Nombre` y `Activo` en materias. El modelo no define código estudiantil ni descripción de materia, por lo que no se inventaron campos.
 - Estudiantes y materias no se eliminan físicamente: solo se activan o desactivan para preservar calificaciones e historial académico.
+- La Etapa 4 tampoco modifica el esquema: reutiliza las entidades `Calificacion` y `AsignacionMateria`, el índice único `(EstudianteId, MateriaId, Trimestre)` y las restricciones `CK_Calificaciones_Nota` y `CK_Calificaciones_Trimestre` ya existentes.
+- El promedio anual no se guarda en la base: se calcula en cada consulta del boletín, por lo que no puede quedar desactualizado.
+- La corrección de notas (`PUT`) reutiliza el registro original y conserva la trazabilidad en `ActualizadoPorUsuarioId`.
+- El endpoint de asignaciones del Profesor y los de calificaciones obtienen el ID del Profesor desde el JWT (`nameid`/`sub`); nunca desde el cuerpo o la query del cliente.
 - La base `INS600_Notas_AlvarezDB` no fue modificada ni utilizada.

@@ -157,3 +157,132 @@ Accept: application/json
 ### Sin token no se puede listar materias (401)
 GET {{SistemaNotasColegio_HostAddress}}/api/materias
 Accept: application/json
+
+### ------------------------------------------------------------------
+### ETAPA 4: CALIFICACIONES Y BOLETÍN
+### ------------------------------------------------------------------
+
+### Profesor: consultar sus materias asignadas (identidad tomada del JWT)
+GET {{SistemaNotasColegio_HostAddress}}/api/profesores/mis-asignaciones
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Profesor: listar calificaciones de sus materias asignadas
+GET {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Profesor: filtrar por estudiante
+GET {{SistemaNotasColegio_HostAddress}}/api/calificaciones?estudianteId=1
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Profesor: filtrar por materia
+GET {{SistemaNotasColegio_HostAddress}}/api/calificaciones?materiaId=1
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Profesor: filtrar por trimestre (1, 2 o 3)
+GET {{SistemaNotasColegio_HostAddress}}/api/calificaciones?trimestre=1
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Profesor: consultar una calificación por id
+GET {{SistemaNotasColegio_HostAddress}}/api/calificaciones/1
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Profesor: registrar una calificación (201)
+### Nota entre 0 y 100. Duplicado estudiante/materia/trimestre -> 409.
+POST {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Authorization: Bearer {{tokenProfesor}}
+Content-Type: application/json
+
+{
+  "estudianteId": 1,
+  "materiaId": 1,
+  "trimestre": 1,
+  "nota": 80
+}
+
+### Profesor: corregir una calificación existente (200)
+PUT {{SistemaNotasColegio_HostAddress}}/api/calificaciones/1
+Authorization: Bearer {{tokenProfesor}}
+Content-Type: application/json
+
+{
+  "nota": 85
+}
+
+### Profesor: intento de nota duplicada (409)
+POST {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Authorization: Bearer {{tokenProfesor}}
+Content-Type: application/json
+
+{
+  "estudianteId": 1,
+  "materiaId": 1,
+  "trimestre": 1,
+  "nota": 90
+}
+
+### Profesor: nota fuera de rango (400)
+POST {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Authorization: Bearer {{tokenProfesor}}
+Content-Type: application/json
+
+{
+  "estudianteId": 1,
+  "materiaId": 1,
+  "trimestre": 2,
+  "nota": 150
+}
+
+### Profesor: materia no asignada (403)
+POST {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Authorization: Bearer {{tokenProfesor}}
+Content-Type: application/json
+
+{
+  "estudianteId": 1,
+  "materiaId": 2,
+  "trimestre": 1,
+  "nota": 80
+}
+
+### Secretaría: consultar boletín del estudiante (200)
+### Promedio anual solo con las tres notas; si falta alguna -> null + INCOMPLETO.
+GET {{SistemaNotasColegio_HostAddress}}/api/boletines/estudiantes/1
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Secretaría: boletín de estudiante inexistente (404)
+GET {{SistemaNotasColegio_HostAddress}}/api/boletines/estudiantes/999999
+Authorization: Bearer {{tokenSecretaria}}
+Accept: application/json
+
+### Secretaría no puede registrar calificaciones (403)
+POST {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Authorization: Bearer {{tokenSecretaria}}
+Content-Type: application/json
+
+{
+  "estudianteId": 1,
+  "materiaId": 1,
+  "trimestre": 2,
+  "nota": 80
+}
+
+### Profesor no puede consultar boletines (403)
+GET {{SistemaNotasColegio_HostAddress}}/api/boletines/estudiantes/1
+Authorization: Bearer {{tokenProfesor}}
+Accept: application/json
+
+### Sin token no se pueden consultar calificaciones (401)
+GET {{SistemaNotasColegio_HostAddress}}/api/calificaciones
+Accept: application/json
+
+### Token inválido (401)
+GET {{SistemaNotasColegio_HostAddress}}/api/profesores/mis-asignaciones
+Authorization: Bearer token.invalido.firma
+Accept: application/json

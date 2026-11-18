@@ -5,7 +5,8 @@ public enum ServiceErrorType
     BadRequest,
     NotFound,
     Conflict,
-    Unauthorized
+    Unauthorized,
+    Forbidden
 }
 
 public sealed class ServiceResult<T>

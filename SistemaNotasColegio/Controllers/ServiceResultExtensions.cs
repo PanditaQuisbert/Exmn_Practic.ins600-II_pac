@@ -21,6 +21,9 @@ public static class ServiceResultExtensions
             ServiceErrorType.NotFound => controller.NotFound(body),
             ServiceErrorType.Conflict => controller.Conflict(body),
             ServiceErrorType.Unauthorized => controller.Unauthorized(body),
+            ServiceErrorType.Forbidden => controller.StatusCode(
+                StatusCodes.Status403Forbidden,
+                body),
             _ => controller.BadRequest(body)
         };
     }
